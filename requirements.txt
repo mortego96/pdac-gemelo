@@ -1,0 +1,16 @@
+# PDAC Gemelo Digital v4 — Dependencias
+# Python 3.12+
+
+mesa>=3.0,<4.0
+streamlit>=1.40
+networkx>=3.1
+plotly>=5.24
+pandas
+numpy
+scipy
+matplotlib>=3.9
+Pillow>=10.0
+imageio>=2.36
+
+# Opcional (para dibujar moléculas):
+# pip install rdkit-pypi
