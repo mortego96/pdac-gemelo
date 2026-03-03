@@ -408,13 +408,13 @@ try:
         d = hill_dose(dose_navitoclax_um, ic50["navitoclax"])
         if d > 0: doses["navitoclax"] = d
 
-        d = hill_dose(dose_5fu_um, ic50["5fu"])
+        d = min(dose_5fu_um / 20.0, 1.0)          # c_max 5-FU = 20 µM
         if d > 0: doses["5fu"] = d
 
-        d = hill_dose(dose_oxali_um, ic50["oxaliplatin"])
+        d = min(dose_oxali_um / 20.0, 1.0)        # c_max oxaliplatin = 20 µM
         if d > 0: doses["oxaliplatin"] = d
 
-        d = hill_dose(dose_irinotecan_um, ic50["irinotecan"])
+        d = min(dose_irinotecan_um / 4.0, 1.0)    # c_max irinotecan = 4 µM
         if d > 0: doses["irinotecan"] = d
 
         model.set_drug_doses(doses)

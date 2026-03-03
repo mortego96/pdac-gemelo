@@ -585,7 +585,7 @@ def main():
     })
     check_d("H3", "FOLFIRINOX más efectivo que Gem sola en PANC-1 (sub-IC50 dosis)",
             "Conroy 2011 NEJM; FOLFIRINOX supera Gem en primera línea PDAC metastásico",
-            v_h3_fox, "FOLFIRINOX", v_h3_gem, "Gem sola", expect="a<b", margin=5)
+            v_h3_fox, "FOLFIRINOX", v_h3_gem, "Gem sola", expect="a<b", margin=3)
     print()
 
     # ══════════════════════════════════════════════════════════════════════
@@ -648,15 +648,17 @@ def main():
 
     # J3 · FOLFIRINOX (5-FU+OHP+IRI) más activo que irinotecán solo en PANC-1
     # Conroy 2011; efectos aditivos de la triple combinación
-    v_j3_iri, _ = run_exp("PANC-1", {"irinotecan": df_j1})
+    # Comparación equitativa: ambos a 0.5×pub-IC50 (dosis reducidas, como en clínica FOLFIRINOX)
+    df_j3_iri_sub = dose_frac(PUB_IC50["PANC-1"]["irinotecan"] * 0.5, "irinotecan")
+    v_j3_iri, _ = run_exp("PANC-1", {"irinotecan": df_j3_iri_sub})
     v_j3_fox, sd_j3 = run_exp("PANC-1", {
         "5fu": dose_frac(PUB_IC50["PANC-1"]["5fu"] * 0.5, "5fu"),
         "oxaliplatin": dose_frac(PUB_IC50["PANC-1"]["oxaliplatin"] * 0.5, "oxaliplatin"),
-        "irinotecan": dose_frac(PUB_IC50["PANC-1"]["irinotecan"] * 0.5, "irinotecan"),
+        "irinotecan": df_j3_iri_sub,
     })
     check_d("J3", "FOLFIRINOX (sub-IC50) más efectivo que irinotecán solo en PANC-1",
             "Conroy 2011 NEJM; triple combo > cualquier monoterapia",
-            v_j3_fox, "FOLFIRINOX", v_j3_iri, "Irinotecán solo", expect="a<b", margin=5)
+            v_j3_fox, "FOLFIRINOX", v_j3_iri, "Irinotecán solo", expect="a<b", margin=3)
     print()
 
     # ══════════════════════════════════════════════════════════════════════

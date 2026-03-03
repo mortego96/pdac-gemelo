@@ -484,11 +484,17 @@ class DrugLibrary:
             effects = drug.get_effect(dose, phase)
             for target, inh in effects.items():
                 if target in combined:
-                    # Para valores negativos (apoptosis inducida), sumar
-                    if inh < 0 or combined[target] < 0:
-                        combined[target] = combined[target] + inh
+                    prev = combined[target]
+                    if prev < 0 and inh < 0:
+                        # Bliss independence para activaciones (apoptosis, ROS):
+                        # evita sobre-kill aditivo en combinaciones como FOLFIRINOX
+                        combined[target] = -(1.0 - (1.0 - abs(prev)) * (1.0 - abs(inh)))
+                    elif inh < 0 or prev < 0:
+                        # Signos mezclados: aditivo
+                        combined[target] = prev + inh
                     else:
-                        combined[target] = combined[target] + inh - combined[target] * inh
+                        # Ambos positivos: Bliss para inhibición
+                        combined[target] = prev + inh - prev * inh
                 else:
                     combined[target] = inh
         for t in combined:
