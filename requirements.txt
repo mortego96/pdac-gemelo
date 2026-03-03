@@ -1,12 +1,12 @@
-# PDAC Cell Culture Simulator v9 — Dependencias
-# Python 3.11
+# PDAC Cell Culture Simulator v9
+# Python 3.13 (Streamlit Cloud)
 
-mesa==3.0.3
+mesa==3.5.0
 streamlit>=1.40
 networkx>=3.1
-plotly>=5.24
+plotly>=5.0
 pandas>=2.0
-numpy>=1.26,<2.0
+numpy>=1.26
 scipy>=1.11
 matplotlib>=3.7
 Pillow>=10.0

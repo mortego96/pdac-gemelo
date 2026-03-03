@@ -3,6 +3,14 @@
 Interfaz de cultivo celular in vitro para líneas PDAC reales.
 Corre con: streamlit run gui/app.py --server.port 8502
 """
+import sys
+import os
+
+# Asegurar que el root del repo está en sys.path desde el principio
+_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if _ROOT not in sys.path:
+    sys.path.insert(0, _ROOT)
+
 import streamlit as st
 
 st.set_page_config(
