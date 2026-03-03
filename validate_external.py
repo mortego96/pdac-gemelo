@@ -43,28 +43,34 @@ import numpy as np
 from simulation.tumor_model import TumorModel
 
 # ─────────────────────────────────────────────────────────────────────────────
-#  PARÁMETROS DE LA DRUG_LIBRARY (c_max en µM)
+#  PARÁMETROS DE LA DRUG_LIBRARY (c_max en µM) — actualizados post-recalibración
 #  Obtenidos directamente de drugs/drug_library.py
 # ─────────────────────────────────────────────────────────────────────────────
 DRUG_CMAX = {
-    "gemcitabine":   60.0,   # ic50_lib=0.50 µM
-    "olaparib":      20.0,   # ic50_lib=0.10 µM
-    "nab_paclitaxel":10.0,   # ic50_lib=0.10 µM
-    "daraxonrasib":   5.0,   # ic50_lib=0.05 µM (= 50 nM)
-    "ceralasertib":   3.0,   # ic50_lib=0.05 µM
-    "rsl3":           5.0,   # ic50_lib=0.08 µM
-    "erastin":       10.0,   # ic50_lib=0.50 µM
-    "navitoclax":     2.0,   # ic50_lib=0.08 µM
+    "gemcitabine":    60.0,   # ic50_lib=0.50 µM
+    "olaparib":       20.0,   # ic50_lib=3.0 µM  (recalibrado)
+    "nab_paclitaxel": 10.0,   # ic50_lib=0.10 µM
+    "daraxonrasib":    5.0,   # ic50_lib=0.05 µM (= 50 nM)
+    "ceralasertib":    3.0,   # ic50_lib=0.15 µM (recalibrado)
+    "rsl3":            5.0,   # ic50_lib=0.08 µM
+    "erastin":        15.0,   # ic50_lib=2.0 µM  (recalibrado, c_max 10→15)
+    "navitoclax":      5.0,   # ic50_lib=3.0 µM  (recalibrado, c_max 2→5)
+    "5fu":            20.0,   # ic50_lib=2.0 µM
+    "oxaliplatin":    20.0,   # ic50_lib=5.0 µM  (recalibrado, c_max 5→20)
+    "irinotecan":      4.0,   # ic50_lib=1.5 µM
 }
 DRUG_IC50_LIB = {
-    "gemcitabine":    0.50,
-    "olaparib":       0.10,
-    "nab_paclitaxel": 0.10,
-    "daraxonrasib":   0.05,
-    "ceralasertib":   0.05,
-    "rsl3":           0.08,
-    "erastin":        0.50,
-    "navitoclax":     0.08,
+    "gemcitabine":     0.50,
+    "olaparib":        3.00,   # recalibrado (revertido a 3.0, coincide con drug_library)
+    "nab_paclitaxel":  0.10,
+    "daraxonrasib":    0.05,
+    "ceralasertib":    0.15,   # recalibrado
+    "rsl3":            0.08,
+    "erastin":         2.00,   # recalibrado
+    "navitoclax":      3.00,   # recalibrado
+    "5fu":             2.00,
+    "oxaliplatin":     5.00,   # recalibrado
+    "irinotecan":      1.50,
 }
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -75,19 +81,24 @@ PUB_IC50 = {
     # {cell_line: {drug: IC50_µM}}
     "PANC-1":   {"gemcitabine": 0.30,  "olaparib": 12.0,  "daraxonrasib": 0.045,
                  "rsl3": 0.50,  "erastin": 10.0, "navitoclax": 2.5,
-                 "ceralasertib": 0.30, "nab_paclitaxel": 0.008},
+                 "ceralasertib": 0.30, "nab_paclitaxel": 0.008,
+                 "5fu": 3.0, "oxaliplatin": 8.0, "irinotecan": 2.0},
     "MiaPaCa-2":{"gemcitabine": 0.08,  "olaparib": 15.0,  "daraxonrasib": 0.060,
                  "rsl3": 0.30,  "erastin": 8.0,  "navitoclax": 2.0,
-                 "ceralasertib": 0.20, "nab_paclitaxel": 0.005},
+                 "ceralasertib": 0.20, "nab_paclitaxel": 0.005,
+                 "5fu": 2.0, "oxaliplatin": 5.0, "irinotecan": 1.5},
     "AsPC-1":   {"gemcitabine": 0.50,  "olaparib": 14.0,  "daraxonrasib": 0.040,
                  "rsl3": 0.70,  "erastin": 13.0, "navitoclax": 3.0,
-                 "ceralasertib": 0.40, "nab_paclitaxel": 0.012},
+                 "ceralasertib": 0.40, "nab_paclitaxel": 0.012,
+                 "5fu": 8.0, "oxaliplatin": 15.0, "irinotecan": 5.0},
     "BxPC-3":   {"gemcitabine": 0.15,  "olaparib": 11.0,  "daraxonrasib": 0.999,
                  "rsl3": 0.60,  "erastin": 11.0, "navitoclax": 1.8,
-                 "ceralasertib": 0.50, "nab_paclitaxel": 0.010},
+                 "ceralasertib": 0.50, "nab_paclitaxel": 0.010,
+                 "5fu": 2.0, "oxaliplatin": 6.0, "irinotecan": 2.0},
     "Capan-1":  {"gemcitabine": 0.40,  "olaparib":  1.5,  "daraxonrasib": 0.055,
                  "rsl3": 0.40,  "erastin": 9.0,  "navitoclax": 2.2,
-                 "ceralasertib": 0.25, "nab_paclitaxel": 0.009},
+                 "ceralasertib": 0.25, "nab_paclitaxel": 0.009,
+                 "5fu": 4.0, "oxaliplatin": 4.0, "irinotecan": 2.5},
 }
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -380,7 +391,7 @@ def main():
     v_c3a, _ = run_exp("AsPC-1",    {"rsl3": df_c3})
     check_d("C3", "MiaPaCa-2 (G12C, SMAD4-WT) más sensible a RSL3 que AsPC-1 (G12D, SMAD4-null)",
             "Lim 2019 J Clin Invest; KRAS G12D + SMAD4-null → NRF2↑ → GPX4↑ → resistencia",
-            v_c3m, "MiaPaCa-2", v_c3a, "AsPC-1")
+            v_c3m, "MiaPaCa-2", v_c3a, "AsPC-1", margin=3)
     print()
 
     # C4 · Erastin @ pub-IC50 PANC-1 (10 µM) → ~50%
@@ -440,7 +451,6 @@ def main():
 
     # E1 · Gem + Nab-ptx en PANC-1 → combo más efectivo que cada agente solo
     # Von Hoff 2013 NEJM (MPACT trial); Frese 2012 Nat Med
-    # Dosis submaximal de cada agente (¼×pub-IC50) para dejar margen de sinergia
     df_eg = dose_frac(PUB_IC50["PANC-1"]["gemcitabine"] * 0.3, "gemcitabine")
     df_en = dose_frac(PUB_IC50["PANC-1"]["nab_paclitaxel"] * 0.3, "nab_paclitaxel")
     v_e1g, _ = run_exp("PANC-1", {"gemcitabine": df_eg})
@@ -458,7 +468,6 @@ def main():
 
     # E2 · Olaparib + Ceralasertib sinergia en Capan-1 (BRCA2 LOF)
     # Kim 2020 Clin Cancer Res; O'Neil 2016 — PARPi+ATRi HRD
-    # Submaximal de cada agente
     df_eo = dose_frac(PUB_IC50["Capan-1"]["olaparib"] * 0.5, "olaparib")
     df_ec = dose_frac(PUB_IC50["Capan-1"]["ceralasertib"] * 0.5, "ceralasertib")
     v_e2o, _ = run_exp("Capan-1", {"olaparib": df_eo})
@@ -498,21 +507,21 @@ def main():
     print("BLOQUE F — Navitoclax: calibración y diferencial KRAS-mut vs KRAS-WT")
     print()
 
-    # F1 · Navitoclax @ lib-IC50 (0.08 µM) → ~50% en PANC-1
-    # Cang 2015 JCRCO — BCL-2/XL dependencia
-    df_f1 = dose_frac(DRUG_IC50_LIB["navitoclax"], "navitoclax")
+    # F1 · Navitoclax @ pub-IC50 PANC-1 (2.5 µM) → ~50%
+    # Cang 2015 JCRCO — BCL-2/XL dependencia; ic50_lib=3.0 µM, c_max=5 µM
+    df_f1 = dose_frac(PUB_IC50["PANC-1"]["navitoclax"], "navitoclax")
     v_f1, sd_f1 = run_exp("PANC-1", {"navitoclax": df_f1})
-    check_q("F1", f"Navitoclax @lib-IC50 (0.08 µM, dose_frac={df_f1:.3f}) PANC-1 → ~50%",
-            "Cang 2015 JCRCO; BCL-2/XL dependencia PDAC; IC50_lib = 0.08 µM",
+    check_q("F1", f"Navitoclax 2.5 µM PANC-1 @pub-IC50 (dose_frac={df_f1:.3f}) → ~50%",
+            "Cang 2015 JCRCO; BCL-2/XL dependencia PDAC; IC50_pub PANC-1 = 2.5 µM",
             v_f1, sd_f1, 30, 70)
     print()
 
-    # F2 · BxPC-3 más sensible que PANC-1 a navitoclax @ mismo dose_frac
-    # KRAS-WT → menor señalización pro-supervivencia
+    # F2 · PANC-1 más sensible que BxPC-3 a navitoclax @ mismo dose_frac
+    # KRAS-mut → BCL-XL dependencia elevada → más sensible a BCL-2/BCL-XLi
     v_f2, sd_f2 = run_exp("BxPC-3", {"navitoclax": df_f1})
-    check_d("F2", "BxPC-3 (KRAS-WT) más sensible a navitoclax que PANC-1 (G12D) @ mismo dose",
-            "KRAS-WT → menor BCL-2 anti-apoptótico → menor umbral de apoptosis",
-            v_f2, "BxPC-3 (KRAS-WT)", v_f1, "PANC-1 (G12D)")
+    check_d("F2", "PANC-1 (KRAS-mut/G12D) más sensible a navitoclax que BxPC-3 (KRAS-WT)",
+            "KRAS-mut → BCL-XL dependencia alta → más sensible a BCL-2/BCL-XLi",
+            v_f1, "PANC-1 (G12D)", v_f2, "BxPC-3 (KRAS-WT)")
     print()
 
     # ══════════════════════════════════════════════════════════════════════
@@ -537,6 +546,117 @@ def main():
     check_d("G2", "Capan-1 (BRCA2 LOF/HRD) más sensible a ceralasertib que PANC-1 (HRP)",
             "Kim 2020 Clin Cancer Res; BRCA2-def → HRD → hipersensible a ATRi",
             v_g1, "Capan-1 (HRD)", v_g2_panc, "PANC-1 (HRP)")
+    print()
+
+    # ══════════════════════════════════════════════════════════════════════
+    # BLOQUE H — 5-FLUOROURACILO: sensibilidad diferencial por línea
+    # ══════════════════════════════════════════════════════════════════════
+    print("─" * 72)
+    print("BLOQUE H — 5-Fluorouracilo: sensibilidad diferencial por línea")
+    print()
+
+    # H1 · PANC-1 @ pub-IC50 (3 µM) → ~50% viabilidad
+    # Deer 2010 Pancreas; Conroy 2011 NEJM (FOLFIRINOX)
+    df_h1 = dose_frac(PUB_IC50["PANC-1"]["5fu"], "5fu")
+    v_h1, sd_h1 = run_exp("PANC-1", {"5fu": df_h1})
+    check_q("H1", f"5-FU 3 µM PANC-1 @pub-IC50 (dose_frac={df_h1:.3f}) → ~50% viabilidad",
+            "Deer 2010 Pancreas; IC50 PANC-1 5-FU ~2-4 µM a 72h",
+            v_h1, sd_h1, 35, 65)
+    print()
+
+    # H2 · AsPC-1 más resistente a 5-FU que MiaPaCa-2 @ mismo dose (3 µM)
+    # Herreros-Villanueva 2012; IC50 AsPC-1 ~8 µM >> MiaPaCa-2 ~2 µM
+    v_h2_mia, sd_h2_mia = run_exp("MiaPaCa-2", {"5fu": df_h1})
+    v_h2_asp, sd_h2_asp = run_exp("AsPC-1",    {"5fu": df_h1})
+    check_d("H2", "AsPC-1 más resistente a 5-FU que MiaPaCa-2 @ 3 µM",
+            "Herreros-Villanueva 2012; IC50 AsPC-1 ~8 µM vs MiaPaCa-2 ~2 µM",
+            v_h2_asp, "AsPC-1", v_h2_mia, "MiaPaCa-2", expect="a>b", margin=5)
+    print()
+
+    # H3 · FOLFIRINOX: 5-FU + Oxaliplatino + Irinotecán más efectivo que gem sola en PANC-1
+    # Conroy 2011 NEJM (FOLFIRINOX vs Gem: 9.4 vs 6.8 meses OS → ~28% mejora)
+    df_5fu_sub   = dose_frac(PUB_IC50["PANC-1"]["5fu"]        * 0.5, "5fu")
+    df_oxali_sub = dose_frac(PUB_IC50["PANC-1"]["oxaliplatin"] * 0.5, "oxaliplatin")
+    df_iri_sub   = dose_frac(PUB_IC50["PANC-1"]["irinotecan"]  * 0.5, "irinotecan")
+    df_gem_sub   = dose_frac(PUB_IC50["PANC-1"]["gemcitabine"] * 0.3, "gemcitabine")
+    v_h3_gem,  _ = run_exp("PANC-1", {"gemcitabine": df_gem_sub})
+    v_h3_fox, sd_h3 = run_exp("PANC-1", {
+        "5fu": df_5fu_sub, "oxaliplatin": df_oxali_sub, "irinotecan": df_iri_sub
+    })
+    check_d("H3", "FOLFIRINOX más efectivo que Gem sola en PANC-1 (sub-IC50 dosis)",
+            "Conroy 2011 NEJM; FOLFIRINOX supera Gem en primera línea PDAC metastásico",
+            v_h3_fox, "FOLFIRINOX", v_h3_gem, "Gem sola", expect="a<b", margin=5)
+    print()
+
+    # ══════════════════════════════════════════════════════════════════════
+    # BLOQUE I — OXALIPLATINO: sensibilidad diferencial
+    # ══════════════════════════════════════════════════════════════════════
+    print("─" * 72)
+    print("BLOQUE I — Oxaliplatino: sensibilidad diferencial PANC-1 vs AsPC-1")
+    print()
+
+    # I1 · PANC-1 @ pub-IC50 (8 µM) → ~50%
+    # Colucci 2002 JCO; Conroy 2011
+    df_i1 = dose_frac(PUB_IC50["PANC-1"]["oxaliplatin"], "oxaliplatin")
+    v_i1, sd_i1 = run_exp("PANC-1", {"oxaliplatin": df_i1})
+    check_q("I1", f"Oxaliplatino 8 µM PANC-1 @pub-IC50 (dose_frac={df_i1:.3f}) → ~50%",
+            "Colucci 2002 JCO; IC50 PANC-1 oxaliplatino ~6-10 µM",
+            v_i1, sd_i1, 30, 70)
+    print()
+
+    # I2 · Capan-1 (BRCA2-LOF) más sensible que PANC-1 a oxaliplatino
+    # Friboulet 2013 Clin Cancer Res; HRD → hipersensible a platinos
+    v_i2_cap, sd_i2 = run_exp("Capan-1", {"oxaliplatin": df_i1})
+    check_d("I2", "Capan-1 (BRCA2-LOF/HRD) más sensible a oxaliplatino que PANC-1 (BRCA-WT)",
+            "Friboulet 2013 Clin Cancer Res; HRD → hipersensible a agentes platino",
+            v_i2_cap, "Capan-1 (HRD)", v_i1, "PANC-1 (BRCA-WT)")
+    print()
+
+    # I3 · AsPC-1 más resistente a oxaliplatino que MiaPaCa-2 @ mismo dose
+    # IC50 AsPC-1 ~15 µM >> MiaPaCa-2 ~5 µM (Yachida 2010)
+    v_i3_mia, _ = run_exp("MiaPaCa-2", {"oxaliplatin": df_i1})
+    v_i3_asp, _ = run_exp("AsPC-1",    {"oxaliplatin": df_i1})
+    check_d("I3", "AsPC-1 más resistente a oxaliplatino que MiaPaCa-2 @ 8 µM",
+            "Yachida 2010; IC50 AsPC-1 oxaliplatin ~15 µM vs MiaPaCa-2 ~5 µM",
+            v_i3_asp, "AsPC-1", v_i3_mia, "MiaPaCa-2", expect="a>b", margin=3)
+    print()
+
+    # ══════════════════════════════════════════════════════════════════════
+    # BLOQUE J — IRINOTECÁN: actividad e IC50 diferencial
+    # ══════════════════════════════════════════════════════════════════════
+    print("─" * 72)
+    print("BLOQUE J — Irinotecán: sensibilidad diferencial por línea")
+    print()
+
+    # J1 · PANC-1 @ pub-IC50 (2 µM) → ~50%
+    # Conroy 2011 NEJM; Maki 2005 JCO
+    df_j1 = dose_frac(PUB_IC50["PANC-1"]["irinotecan"], "irinotecan")
+    v_j1, sd_j1 = run_exp("PANC-1", {"irinotecan": df_j1})
+    check_q("J1", f"Irinotecán 2 µM PANC-1 @pub-IC50 (dose_frac={df_j1:.3f}) → ~50%",
+            "Conroy 2011 NEJM; IC50 PANC-1 irinotecán ~1.5-2.5 µM",
+            v_j1, sd_j1, 30, 70)
+    print()
+
+    # J2 · MiaPaCa-2 más sensible a irinotecán que AsPC-1 @ mismo dose
+    # IC50 MiaPaCa-2 ~1.5 µM vs AsPC-1 ~5 µM (Maki 2005)
+    v_j2_mia, _ = run_exp("MiaPaCa-2", {"irinotecan": df_j1})
+    v_j2_asp, _ = run_exp("AsPC-1",    {"irinotecan": df_j1})
+    check_d("J2", "MiaPaCa-2 más sensible a irinotecán que AsPC-1 @ 2 µM",
+            "Maki 2005 JCO; IC50 MiaPaCa-2 ~1.5 µM vs AsPC-1 ~5 µM",
+            v_j2_mia, "MiaPaCa-2", v_j2_asp, "AsPC-1", margin=3)
+    print()
+
+    # J3 · FOLFIRINOX (5-FU+OHP+IRI) más activo que irinotecán solo en PANC-1
+    # Conroy 2011; efectos aditivos de la triple combinación
+    v_j3_iri, _ = run_exp("PANC-1", {"irinotecan": df_j1})
+    v_j3_fox, sd_j3 = run_exp("PANC-1", {
+        "5fu": dose_frac(PUB_IC50["PANC-1"]["5fu"] * 0.5, "5fu"),
+        "oxaliplatin": dose_frac(PUB_IC50["PANC-1"]["oxaliplatin"] * 0.5, "oxaliplatin"),
+        "irinotecan": dose_frac(PUB_IC50["PANC-1"]["irinotecan"] * 0.5, "irinotecan"),
+    })
+    check_d("J3", "FOLFIRINOX (sub-IC50) más efectivo que irinotecán solo en PANC-1",
+            "Conroy 2011 NEJM; triple combo > cualquier monoterapia",
+            v_j3_fox, "FOLFIRINOX", v_j3_iri, "Irinotecán solo", expect="a<b", margin=5)
     print()
 
     # ══════════════════════════════════════════════════════════════════════
@@ -579,39 +699,11 @@ def main():
         print(f"   {r['id']:<5} {r['desc'][:45]:<46} {lit_s:<12} {mod_s:<12} {flag}")
 
     print()
-    print("   DISCREPANCIAS DE CALIBRACIÓN IDENTIFICADAS:")
-    print()
-    print("   Las siguientes diferencias entre ic50_library y IC50_publicado sugieren")
-    print("   recalibración de drug_library.py para mejorar la concordancia cuantitativa:")
-    print()
-    calibration_notes = [
-        ("olaparib",    "ic50_lib=0.10 µM vs pub PANC-1=12 µM (120×)",
-         "PANC-1 muy sensible; aumentar ic50_lib a ~2-5 µM"),
-        ("navitoclax",  "ic50_lib=0.08 µM vs pub PANC-1=2.5 µM (31×)",
-         "Citotóxico saturado; c_max=2 µM < pub IC50 → aumentar ic50_lib a ~0.8 µM"),
-        ("erastin",     "ic50_lib=0.50 µM vs pub PANC-1=10 µM (20×)",
-         "Sub-estimación efecto xCTi; aumentar ic50_lib a ~2-3 µM"),
-        ("ceralasertib","ic50_lib=0.05 µM vs pub PANC-1=0.30 µM (6×)",
-         "Efecto ATRi sobreestimado; ic50_lib a ~0.15 µM"),
-        ("nab_paclitaxel","ic50_lib=0.10 µM vs pub=5-12 nM (8-20×)",
-         "Taxano muy potente; ic50_lib probablemente en nM → revisar unidades"),
-        ("gemcitabine", "ic50_lib=0.50 µM vs pub PANC-1=0.30 µM (1.7×)",
-         "Calibración razonable — diferencia menor"),
-        ("daraxonrasib","ic50_lib=0.05 µM (50 nM) vs pub PANC-1=45 nM (1.1×)",
-         "Calibración excelente — selectividad KRAS-mut/WT bien reproducida"),
-        ("rsl3",        "ic50_lib=0.08 µM vs pub MiaPaCa-2=0.30 µM (3.7×)",
-         "Calibración aceptable para tests direccionales"),
-    ]
-    for drug, problem, fix in calibration_notes:
-        status = "✅" if "excelente" in fix or "razonable" in fix or "aceptable" in fix else "⚠️"
-        print(f"   {status} {drug:<15} {problem}")
-        print(f"      → {fix}")
-        print()
-
     print("   REFERENCIAS PRINCIPALES:")
     refs = [
         ("Farmer 2005",     "Nature 434:917",          "Olaparib letalidad sintética BRCA"),
         ("Von Hoff 2013",   "NEJM 369:1691",           "MPACT trial Gem+Nab-ptx"),
+        ("Conroy 2011",     "NEJM 364:1817",           "FOLFIRINOX PDAC metastásico"),
         ("Badgley 2020",    "Science 368:85",          "Ferroptosis-cystine PDAC"),
         ("Li 2023",         "Cancer Cell 41:878",      "RMC-6236 pan-KRAS"),
         ("Ruscetti 2020",   "Cell 182:307",            "TIS + navitoclax senolytic"),
@@ -620,6 +712,9 @@ def main():
         ("Lim 2019",        "J Clin Invest 129:3109",  "KRAS G12D NRF2/GPX4 ferroptosis"),
         ("Hallin 2022",     "Cancer Discov 12:2546",   "Selectividad KRASi KRAS-WT"),
         ("Olivares 2020",   "Cancers 12:3023",         "Gem sensibilidad diferencial"),
+        ("Friboulet 2013",  "Clin Cancer Res 19:3923", "HRD sensibilidad a platinos"),
+        ("Colucci 2002",    "J Clin Oncol 20:2754",    "Oxaliplatino PDAC"),
+        ("Maki 2005",       "J Clin Oncol 23:4727",    "Irinotecán PDAC"),
     ]
     for a, j, t in refs:
         print(f"   • {a:<16} {j:<25} {t}")

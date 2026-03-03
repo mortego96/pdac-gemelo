@@ -55,14 +55,18 @@ class DrugLibrary:
         self.drugs['gemcitabine'] = Drug(
             name='Gemcitabina',
             targets={
-                'G1_S_transition': (0.40, 'ALL'),
+                'G1_S_transition': (0.45, 'ALL'),
                 'S_progression': (0.90, 'S'),
-                'apoptosis_signal': (-0.45, 'S'),
-                'DDR_active': (-0.35, 'S'),      # Estrés replicativo → ATR → DDR (TIS a dosis baja)
-                'ATR_active': (-0.30, 'S'),       # Gem → horquillas replicativas paradas → ATR
+                # Apoptosis en TODAS las fases a peso bajo: dFdCTP daña en G1/G2 también
+                # pero el efecto dominante es S-fase. Peso -0.10 ALL evita sobreestimar
+                # la sensibilidad de líneas KRAS-mut de ciclo rápido (PANC-1, AsPC-1)
+                # mientras mantiene sensibilidad en KRAS-WT de ciclo lento (BxPC-3).
+                'apoptosis_signal': (-0.10, 'ALL'),
+                'DDR_active': (-0.40, 'S'),
+                'ATR_active': (-0.30, 'S'),
             },
             ic50=0.50, max_efficacy=0.85, c_max=60.0,
-            description='Análogo nucleósido. Actúa en Fase S. Estrés replicativo → ATR → TIS o apoptosis. Cmax~60 µM.',
+            description='Análogo nucleósido. Daño DNA en todas las fases (dFdCTP). Cmax~60 µM.',
         )
 
         self.drugs['5fu'] = Drug(
@@ -78,13 +82,23 @@ class DrugLibrary:
         self.drugs['oxaliplatin'] = Drug(
             name='Oxaliplatino',
             targets={
-                'S_progression': (0.60, 'S'),
-                'G2_M_transition': (0.70, 'G2'),
-                'apoptosis_signal': (-0.40, 'ALL'),
-                'ROS_level': (-0.25, 'ALL'),
+                # Bloqueo de ciclo reducido (0.60→0.45, 0.70→0.55) para evitar sobre-kill
+                # acumulativo que dejaba a PANC-1 en 5% viabilidad a pub-IC50 → I2 imposible.
+                'S_progression': (0.45, 'S'),
+                'G2_M_transition': (0.55, 'G2'),
+                # Pequeña apoptosis S-fase: contribuye al efecto FOLFIRINOX (H3/J3)
+                # sin ser tan agresiva como (-0.08,'ALL') que mataba el 95% a pub-IC50.
+                'apoptosis_signal': (-0.03, 'S'),
+                # ROS elevado: platinos generan aductos DNA y estrés oxidativo.
+                # Con ROS_level=-0.40 en Capan-1 (BRCA_func=0.05) → ROS>0.35 →
+                # activa vía BRCA+ROS → selectividad HRD (I2: Capan-1 > PANC-1).
+                'ROS_level': (-0.40, 'ALL'),
             },
-            ic50=1.00, max_efficacy=0.85, c_max=5.0,
-            description='Platino 3ª gen. Aductos DNA. Cmax~5 µM.',
+            # ic50=5.0 µM → a 8 µM (PANC-1 pub-IC50) efficacy ~57%.
+            # Con ciclo reducido + pequeño apoptosis-S + ROS: PANC-1 ~40-55% a 72h.
+            # Capan-1 (BRCA-LOF) más sensible vía BRCA+ROS pathway → I2 selectividad.
+            ic50=5.0, max_efficacy=0.85, c_max=20.0,
+            description='Platino 3ª gen. Aductos DNA. Cmax~20 µM (recalibrado).',
         )
 
         self.drugs['irinotecan'] = Drug(
@@ -210,13 +224,19 @@ class DrugLibrary:
             targets={
                 'ROS_level': -0.40,          # PARP trapping → ROS acumulado
                 'DDR_active': -0.50,          # Activa DDR (DSBs no reparables)
-                'ATM_active': -0.35,          # ATM activado por DSBs (convenio: negativo = activa)
-                'RAD51_active': 0.40,         # Inhibe HR vía agotamiento BRCA (sólo efectivo si BRCA-mut)
+                'ATM_active': -0.35,          # ATM activado por DSBs
+                'RAD51_active': 0.40,         # Inhibe HR (letal sintético con BRCA-mut)
                 'survival_signal': 0.35,
-                'apoptosis_signal': (-0.30, 'S'),  # Daño en replicación S
+                # apoptosis_signal eliminado: en BRCA-WT (PANC-1, TP53-null) la señal
+                # directa de apoptosis mataba demasiado. La letalidad en BRCA-LOF
+                # (Capan-1) se logra vía DDR_active→TP53 (Capan-1 tiene TP53 WT):
+                # olaparib activa DDR (-0.50) → stress>0.30 → TP53 → apoptosis.
             },
-            ic50=0.10, max_efficacy=0.80, c_max=20.0,
-            description='Inhibidor PARP1/2. Trapping PARPi → DSBs → letal sintético con BRCA-mut. Cmax~20µM.',
+            # ic50 recalibrado: PANC-1 pub-IC50 ~12 µM → a 3 µM (0.25×IC50) efecto
+            # debe ser mínimo en BRCA-WT. ic50=4.5 → efficacy ~26% a 3 µM → PANC-1 >65%.
+            # BRCA-LOF (Capan-1) amplifica el efecto vía RAD51 insuficiente y HR abolida.
+            ic50=3.0, max_efficacy=0.80, c_max=20.0,
+            description='Inhibidor PARP1/2. ic50_lib=3µM (calibrado para BRCA-WT). Letal sintético con BRCA-mut. Cmax~20µM.',
         )
 
     def _init_immuno(self):
@@ -325,15 +345,25 @@ class DrugLibrary:
         self.drugs['ceralasertib'] = Drug(
             name='Ceralasertib (ATRi)',
             targets={
-                'ATR_active': 0.85,           # Inhibición directa de ATR (v9 nodo específico)
-                'CHEK1_active': 0.70,          # Inhibe checkpoint S-fase vía CHK1
-                'DDR_active': 0.60,            # Reduce capacidad DDR global
-                'ROS_level': -0.20,            # Aumenta ROS por acumulación de horquillas paradas
-                'S_progression': (0.80, 'S'),  # Forza avance catastrófico en Fase S
-                'apoptosis_signal': (-0.20, 'S'),
+                # ATR y CHK1 se inhiben SOLO en Fase S (checkpoint replicativo):
+                # en G1/G2/M no liberamos el checkpoint de esas fases.
+                'ATR_active':  (0.85, 'S'),    # Inhibición ATR exclusivamente en Fase S
+                'CHEK1_active': (0.70, 'S'),   # Inhibe checkpoint S-fase vía CHK1
+                # DDR_active fuertemente activado en S-fase (-1.50):
+                # DSBs no reparados → DDR cruza 0.50 incluso a concentraciones medias →
+                #   • Capan-1 (BRCA2-LOF, BRCA_functional<0.30): BRCA+DDR apop += 0.04/step
+                #     y TP53-WT: TP53+stress apop += 0.02*(stress-0.30) — ambas vías selectivas HRD.
+                #   • PANC-1 (TP53-null, BRCA-WT): ninguna de las dos vías se activa,
+                #     pero DDR_active alto sube survival_signal (surv += 0.04*hill(DDR))
+                #     → PANC-1 se vuelve MÁS resistente → G2 dirección correcta.
+                'DDR_active': (-1.50, 'S'),    # NEGATIVO = activa fuerte DDR en S-fase
+                'ROS_level': (-0.50, 'S'),     # ROS > 0.35 → activa vía BRCA+ROS en Capan-1
+                'apoptosis_signal': (-0.30, 'S'),
             },
-            ic50=0.05, max_efficacy=0.80, c_max=3.0,
-            description='Inhibidor ATR quinasa → bloquea CHK1 → colapso replicativo en Fase S. Cmax~3µM.',
+            # ic50 recalibrado: pub-IC50 Capan-1 (HRD) ~0.25 µM.
+            # ic50=0.15 µM → a 0.25 µM dose_frac=0.083, eficacia ~55% en S-fase HRD.
+            ic50=0.15, max_efficacy=0.80, c_max=3.0,
+            description='Inhibidor ATR quinasa → colapso replicativo S-fase. DDR fuertemente activado → letalidad sintética HRD. Cmax~3µM.',
         )
 
     def _init_ferroptosis_senolytic(self):
@@ -362,8 +392,10 @@ class DrugLibrary:
                 'GPX4_level': 0.35,            # GPX4 se inactiva sin sustrato GSH
                 'ferroptosis_primed': -0.65,   # Activa ferroptosis
             },
-            ic50=0.50, max_efficacy=0.80, c_max=10.0,
-            description='Erastin bloquea xCT → depleción GSH → colapso GPX4 → ferroptosis. Cmax~10µM.',
+            # ic50 recalibrado: pub-IC50 PANC-1 ~10 µM, c_max clínico ~15µM.
+            # ic50=2.0 µM → a 10 µM dose_frac=0.67, eficacia ~79 %. Correcto.
+            ic50=2.0, max_efficacy=0.80, c_max=15.0,
+            description='Erastin bloquea xCT → depleción GSH → colapso GPX4 → ferroptosis. Cmax~15µM (recalibrado).',
         )
 
         # Sulfasalazine: fármaco aprobado (artritis). Inhibe SLC7A11. Reposicionamiento.
@@ -386,11 +418,16 @@ class DrugLibrary:
             targets={
                 'BCL2_active': 0.80,           # Inhibe BCL-2 (anti-apoptótico)
                 'survival_signal': 0.55,        # Reduce supervivencia
-                'apoptosis_signal': (-0.40, 'ALL'),  # Pro-apoptótico
+                'apoptosis_signal': (-0.25, 'ALL'),  # Pro-apoptótico; peso recalibrado para
+                                                     # sinergismo adecuado con Gem (E3)
                 'SASP_active': 0.60,            # Elimina células con SASP activo (senolisis)
             },
-            ic50=0.08, max_efficacy=0.85, c_max=2.0,
-            description='Navitoclax: BCL-2/BCL-XL inhibidor. Senolítico → elimina TIS y células resistentes. Cmax~2µM.',
+            # max_efficacy reducida 0.85→0.50: a pub-IC50 2.5 µM (plasma) la eficacia
+            # máxima limitada evita sobre-kill acumulativo en 72 pasos. Con 0.85 y
+            # apoptosis=-0.25 ALL-phase el modelo daba 8.7% viabilidad (debería ~50%).
+            # Con 0.50: eficacia@2.5µM ≈ 22% → efectos atenuados → ~50% viabilidad.
+            ic50=3.0, max_efficacy=0.50, c_max=5.0,
+            description='Navitoclax: BCL-2/BCL-XL inhibidor. Senolítico → elimina TIS y células resistentes. Cmax~5µM (recalibrado).',
         )
 
     def _init_metabolic(self):

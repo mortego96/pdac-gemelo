@@ -225,8 +225,13 @@ class SignalingNetwork:
         brca = m.get('BRCA', 'WT')
         if brca == 'HOM_LOSS':
             self.nodes['BRCA_functional'] = 0.05
-            self.nodes['RAD51_active']    = 0.10
-            self.nodes['DDR_active']      = 0.10
+            self.nodes['RAD51_active']    = 0.05
+            # DDR_active moderadamente elevado en HRD: células BRCA-LOF tienen daño
+            # basal continuo pero no tan alto como para cruzar el umbral TP53-apoptosis
+            # (>0.3), que causaría muerte espontánea en el control.
+            # Calibrado: 0.30 → justo en el umbral, sin apoptosis basal.
+            # Cuando olaparib activa DDR (-0.50 weight) cruza 0.30 → apoptosis → letal.
+            self.nodes['DDR_active']      = 0.30
         elif brca == 'HET_LOSS':
             self.nodes['BRCA_functional'] = 0.40
             self.nodes['RAD51_active']    = 0.25
@@ -598,7 +603,10 @@ class SignalingNetwork:
         surv += 0.06 * hill(n['STAT3_active'],      k=0.20, n_h=2)
         surv += 0.06 * hill(n['OXPHOS_active'],     k=0.20, n_h=2)
         surv += 0.04 * hill(n['DDR_active'],        k=0.30, n_h=2)
-        surv += 0.05 * hill(n['TEAD_active'],       k=0.35, n_h=2)
+        # YAP/TEAD: aumentado para reflejar resistencia de líneas YAP-AMP (AsPC-1)
+        # y SMAD4-null con YAP bypass transcripcional activo.
+        surv += 0.08 * hill(n['TEAD_active'],       k=0.35, n_h=2)
+        surv += 0.05 * hill(n['YAP_nuclear'],       k=0.35, n_h=2)
         surv += 0.10 * hill(n['EGFR_active'],       k=0.40, n_h=2)
         surv += 0.08 * hill(n['HER2_active'],       k=0.35, n_h=2)
         surv += 0.05 * hill(n['GPX4_level'],        k=0.40, n_h=2)

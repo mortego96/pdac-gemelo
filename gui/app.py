@@ -72,7 +72,8 @@ CELL_LINES = {
         },
         "ic50": {"gemcitabine": 0.30, "olaparib": 12.0, "nab_ptx_nm": 8.0,
                  "rsl3": 0.5, "erastin": 10.0, "navitoclax": 2.5,
-                 "daraxonrasib_nm": 45.0, "ceralasertib": 0.3},
+                 "daraxonrasib_nm": 45.0, "ceralasertib": 0.3,
+                 "5fu": 3.0, "oxaliplatin": 8.0, "irinotecan": 2.0},
         "color": "#4a9eff",
         "note": "Línea gold-standard PDAC. Muy usada para validación de KRASi.",
     },
@@ -93,7 +94,8 @@ CELL_LINES = {
         },
         "ic50": {"gemcitabine": 0.08, "olaparib": 15.0, "nab_ptx_nm": 5.0,
                  "rsl3": 0.3, "erastin": 8.0, "navitoclax": 2.0,
-                 "daraxonrasib_nm": 60.0, "ceralasertib": 0.2},
+                 "daraxonrasib_nm": 60.0, "ceralasertib": 0.2,
+                 "5fu": 2.0, "oxaliplatin": 5.0, "irinotecan": 1.5},
         "color": "#ff6b81",
         "note": "Fenotipo mesenquimal agresivo. Mayor invasividad, alta quimiorresistencia basal.",
     },
@@ -114,7 +116,8 @@ CELL_LINES = {
         },
         "ic50": {"gemcitabine": 0.50, "olaparib": 14.0, "nab_ptx_nm": 12.0,
                  "rsl3": 0.7, "erastin": 13.0, "navitoclax": 3.0,
-                 "daraxonrasib_nm": 40.0, "ceralasertib": 0.4},
+                 "daraxonrasib_nm": 40.0, "ceralasertib": 0.4,
+                 "5fu": 8.0, "oxaliplatin": 15.0, "irinotecan": 5.0},
         "color": "#ffa502",
         "note": "Derivada de ascites peritoneales. Alta IL-6, entorno inflamatorio. SMAD4-null.",
     },
@@ -135,7 +138,8 @@ CELL_LINES = {
         },
         "ic50": {"gemcitabine": 0.15, "olaparib": 11.0, "nab_ptx_nm": 10.0,
                  "rsl3": 0.6, "erastin": 11.0, "navitoclax": 1.8,
-                 "daraxonrasib_nm": 999.0, "ceralasertib": 0.5},  # KRASi inactivo en KRAS-WT
+                 "daraxonrasib_nm": 999.0, "ceralasertib": 0.5,
+                 "5fu": 2.0, "oxaliplatin": 6.0, "irinotecan": 2.0},  # KRASi inactivo en KRAS-WT
         "color": "#2ed573",
         "note": "KRAS wild-type (raro, ~3% PDAC). Más sensible a gemcitabina. No responde a KRASi.",
     },
@@ -156,7 +160,8 @@ CELL_LINES = {
         },
         "ic50": {"gemcitabine": 0.40, "olaparib": 1.5, "nab_ptx_nm": 9.0,
                  "rsl3": 0.4, "erastin": 9.0, "navitoclax": 2.2,
-                 "daraxonrasib_nm": 55.0, "ceralasertib": 0.25},
+                 "daraxonrasib_nm": 55.0, "ceralasertib": 0.25,
+                 "5fu": 4.0, "oxaliplatin": 4.0, "irinotecan": 2.5},
         "color": "#a29bfe",
         "note": "BRCA2 mutante (6174delT). Deficiencia HRR → alta sensibilidad a PARP-i y platinos.",
     },
@@ -203,6 +208,23 @@ with st.sidebar:
                             help=f"IC50 {cl_name}: {cl['ic50']['nab_ptx_nm']} nM")
     st.markdown(f"<div class='drug-ref'>Ref: IC50 {cl_name} = {cl['ic50']['nab_ptx_nm']} nM</div>",
                 unsafe_allow_html=True)
+
+    st.markdown("<div style='font-size:.78rem;color:#3d6070;margin-top:6px'>💊 <b>FOLFIRINOX</b></div>",
+                unsafe_allow_html=True)
+    dose_5fu_um = st.slider("5-Fluorouracilo (µM)", 0.0, 20.0, 0.0, 0.5,
+                            help=f"IC50 {cl_name}: {cl['ic50']['5fu']} µM")
+    st.markdown(f"<div class='drug-ref'>Ref: IC50 {cl_name} = {cl['ic50']['5fu']} µM · "
+                f"plasma clínico ~5-20 µM</div>", unsafe_allow_html=True)
+
+    dose_oxali_um = st.slider("Oxaliplatino (µM)", 0.0, 20.0, 0.0, 0.5,
+                              help=f"IC50 {cl_name}: {cl['ic50']['oxaliplatin']} µM")
+    st.markdown(f"<div class='drug-ref'>Ref: IC50 {cl_name} = {cl['ic50']['oxaliplatin']} µM · "
+                f"plasma clínico ~2-15 µM</div>", unsafe_allow_html=True)
+
+    dose_irinotecan_um = st.slider("Irinotecán (µM)", 0.0, 10.0, 0.0, 0.25,
+                                   help=f"IC50 {cl_name}: {cl['ic50']['irinotecan']} µM")
+    st.markdown(f"<div class='drug-ref'>Ref: IC50 {cl_name} = {cl['ic50']['irinotecan']} µM · "
+                f"plasma clínico ~0.5-4 µM</div>", unsafe_allow_html=True)
 
     dose_ola_um = st.slider(
         "Olaparib (µM)", 0.0, 20.0, 0.0, 0.1,
@@ -385,6 +407,15 @@ try:
 
         d = hill_dose(dose_navitoclax_um, ic50["navitoclax"])
         if d > 0: doses["navitoclax"] = d
+
+        d = hill_dose(dose_5fu_um, ic50["5fu"])
+        if d > 0: doses["5fu"] = d
+
+        d = hill_dose(dose_oxali_um, ic50["oxaliplatin"])
+        if d > 0: doses["oxaliplatin"] = d
+
+        d = hill_dose(dose_irinotecan_um, ic50["irinotecan"])
+        if d > 0: doses["irinotecan"] = d
 
         model.set_drug_doses(doses)
         init_n = n_c
@@ -673,6 +704,9 @@ Navitoclax · Ceralasertib · Anti-PD-1
                     drug_list = []
                     if dose_gem_um > 0: drug_list.append(f"Gemcitabina {dose_gem_um:.2f} µM")
                     if dose_nab_nm > 0: drug_list.append(f"Nab-PTX {dose_nab_nm:.1f} nM")
+                    if dose_5fu_um > 0: drug_list.append(f"5-FU {dose_5fu_um:.1f} µM")
+                    if dose_oxali_um > 0: drug_list.append(f"Oxaliplatino {dose_oxali_um:.1f} µM")
+                    if dose_irinotecan_um > 0: drug_list.append(f"Irinotecán {dose_irinotecan_um:.2f} µM")
                     if dose_ola_um > 0: drug_list.append(f"Olaparib {dose_ola_um:.1f} µM")
                     if pan_kras_nm > 0: drug_list.append(f"Daraxonrasib {pan_kras_nm:.1f} nM")
                     if dose_rsl3_um > 0: drug_list.append(f"RSL3 {dose_rsl3_um:.2f} µM")
@@ -1056,6 +1090,15 @@ Inhibición: <strong>{des_inh}%</strong> a {des_dose_um} µM
             if dose_nab_nm > 0:
                 drug_lines.append(f"Nab-Paclitaxel {dose_nab_nm:.1f} nM "
                                   f"(IC50 {cl_res}: {cl_r['ic50']['nab_ptx_nm']} nM)")
+            if dose_5fu_um > 0:
+                drug_lines.append(f"5-Fluorouracilo {dose_5fu_um:.1f} µM "
+                                  f"(IC50 {cl_res}: {cl_r['ic50']['5fu']} µM)")
+            if dose_oxali_um > 0:
+                drug_lines.append(f"Oxaliplatino {dose_oxali_um:.1f} µM "
+                                  f"(IC50 {cl_res}: {cl_r['ic50']['oxaliplatin']} µM)")
+            if dose_irinotecan_um > 0:
+                drug_lines.append(f"Irinotecán {dose_irinotecan_um:.2f} µM "
+                                  f"(IC50 {cl_res}: {cl_r['ic50']['irinotecan']} µM)")
             if dose_ola_um > 0:
                 drug_lines.append(f"Olaparib {dose_ola_um:.1f} µM "
                                   f"(IC50 {cl_res}: {cl_r['ic50']['olaparib']} µM)")
