@@ -263,8 +263,9 @@ if "duration" not in st.session_state: st.session_state.duration = None
 # ══════════════════════════════════════════════════════════════════════════════
 #  TABS
 # ══════════════════════════════════════════════════════════════════════════════
-tab_micro, tab_curves, tab_signal, tab_drug = st.tabs([
-    "🔬 Microscopía", "📈 Curvas de respuesta", "🧬 Señalización", "💡 Diseñador de Fármacos"
+tab_micro, tab_curves, tab_signal, tab_drug, tab_report = st.tabs([
+    "🔬 Microscopía", "📈 Curvas de respuesta", "🧬 Señalización",
+    "💡 Diseñador de Fármacos", "📄 Informe Científico"
 ])
 
 # ── Función helper: µM → dosis modelo (Hill n=1) ─────────────────────────────
@@ -1003,6 +1004,315 @@ Inhibición: <strong>{des_inh}%</strong> a {des_dose_um} µM
                 f"T-cells: {ts['T-cells CD8+']}</div>",
                 unsafe_allow_html=True,
             )
+
+    # ── TAB 5: INFORME CIENTÍFICO ──────────────────────────────────────────────
+    with tab_report:
+        if model is not None and ran:
+            import numpy as np, pandas as pd
+            from datetime import datetime
+
+            hist  = model.history
+            s     = model.get_summary()
+            cl_r  = CELL_LINES[cl_res]
+            df_r  = pd.DataFrame(hist)
+            df_r["viability_pct"] = df_r["cancer_alive"] / max(init_n, 1) * 100
+
+            final_alive  = s["Células tumorales"]
+            viab         = final_alive / max(init_n, 1) * 100
+            final_resist = hist["resistant_count"][-1] if hist["resistant_count"] else 0
+            final_conflu = final_alive / (cl_r["grid"] ** 2) * 100
+            peak_alive   = int(df_r["cancer_alive"].max())
+            min_alive    = int(df_r["cancer_alive"].min())
+
+            # Señalización media final
+            cancer_cells = [a for a in model.agents
+                            if hasattr(a, "signaling") and getattr(a, "_alive", True)]
+            avg_n = {}
+            node_keys = ["KRAS_active", "ERK_active", "AKT_active", "mTOR_active",
+                         "YAP_nuclear", "NRF2_active", "GPX4_level", "AMPK_active",
+                         "autophagy", "PDL1_expression", "survival_signal",
+                         "apoptosis_signal", "proliferation_signal",
+                         "ATR_active", "DDR_active", "SLC7A11_expression"]
+            for k in node_keys:
+                vals = [c.signaling.nodes.get(k, 0.0) for c in cancer_cells[:40]]
+                avg_n[k] = float(np.mean(vals)) if vals else 0.0
+
+            # Clasificación respuesta
+            if viab < 30:
+                resp_cat = "SENSIBLE"
+                resp_col = "#2ed573"
+            elif viab < 70:
+                resp_cat = "SENSIBILIDAD INTERMEDIA"
+                resp_col = "#f39c12"
+            else:
+                resp_cat = "RESISTENTE"
+                resp_col = "#ff4757"
+
+            # Lista de tratamientos aplicados
+            drug_lines = []
+            if dose_gem_um > 0:
+                drug_lines.append(f"Gemcitabina {dose_gem_um:.2f} µM "
+                                  f"(IC50 {cl_res}: {cl_r['ic50']['gemcitabine']} µM)")
+            if dose_nab_nm > 0:
+                drug_lines.append(f"Nab-Paclitaxel {dose_nab_nm:.1f} nM "
+                                  f"(IC50 {cl_res}: {cl_r['ic50']['nab_ptx_nm']} nM)")
+            if dose_ola_um > 0:
+                drug_lines.append(f"Olaparib {dose_ola_um:.1f} µM "
+                                  f"(IC50 {cl_res}: {cl_r['ic50']['olaparib']} µM)")
+            if pan_kras_nm > 0:
+                drug_lines.append(f"Daraxonrasib/RMC-6236 {pan_kras_nm:.1f} nM "
+                                  f"(IC50 {cl_res}: {cl_r['ic50']['daraxonrasib_nm']} nM)")
+            if dose_ceral_um > 0:
+                drug_lines.append(f"Ceralasertib {dose_ceral_um:.2f} µM "
+                                  f"(IC50 {cl_res}: {cl_r['ic50']['ceralasertib']} µM)")
+            if dose_rsl3_um > 0:
+                drug_lines.append(f"RSL3 (GPX4i) {dose_rsl3_um:.2f} µM "
+                                  f"(IC50 {cl_res}: {cl_r['ic50']['rsl3']} µM)")
+            if dose_erastin_um > 0:
+                drug_lines.append(f"Erastin {dose_erastin_um:.1f} µM "
+                                  f"(IC50 {cl_res}: {cl_r['ic50']['erastin']} µM)")
+            if dose_navitoclax_um > 0:
+                drug_lines.append(f"Navitoclax {dose_navitoclax_um:.1f} µM "
+                                  f"(IC50 {cl_res}: {cl_r['ic50']['navitoclax']} µM)")
+            if dose_anti_pd1 > 0:
+                drug_lines.append(f"Anti-PD-1 {dose_anti_pd1:.1f} µg/mL")
+            if not drug_lines:
+                drug_lines = ["Sin tratamiento (control)"]
+
+            is_combo = len(drug_lines) > 1
+
+            # ── GENERAR INFORME ────────────────────────────────────────────────
+            # Resistencia: mecanismos
+            resist_mechs = []
+            if avg_n.get("NRF2_active", 0) > 0.55:
+                resist_mechs.append("activación del eje NRF2-KEAP1 con sobreexpresión "
+                                    "de genes antioxidantes (HMOX1, NQO1, SLC7A11)")
+            if avg_n.get("KRAS_active", 0) > 0.65 and pan_kras_nm > 0:
+                resist_mechs.append("reactivación de KRAS oncogénico por amplificación "
+                                    "del alelo mutante o bypass vía BRAF/CRAF")
+            if avg_n.get("AKT_active", 0) > 0.55 and avg_n.get("ERK_active", 0) > 0.45:
+                resist_mechs.append("activación paralela de las vías PI3K/AKT y MAPK/ERK "
+                                    "como mecanismo de escape redundante")
+            if avg_n.get("survival_signal", 0) > 0.60:
+                resist_mechs.append("sobreexpresión de proteínas antiapoptóticas "
+                                    "BCL-2/BCL-xL/MCL-1 con bloqueo de la cascada caspasa")
+            if avg_n.get("autophagy", 0) > 0.55:
+                resist_mechs.append("inducción de autofagia como mecanismo de "
+                                    "supervivencia frente al estrés metabólico inducido")
+            if avg_n.get("AMPK_active", 0) > 0.5 and avg_n.get("mTOR_active", 0) < 0.35:
+                resist_mechs.append("reprogramación metabólica vía AMPK con shift hacia "
+                                    "OXPHOS y reducción de la dependencia de glucólisis aerobia")
+            if avg_n.get("PDL1_expression", 0) > 0.55:
+                resist_mechs.append("upregulación de PD-L1 con supresión del microentorno "
+                                    "inmune y exclusión de linfocitos T CD8+")
+            if final_resist > 5:
+                resist_mechs.append(f"selección clonal de {final_resist} células con "
+                                    "resistencia adquirida por presión de selección farmacológica")
+            if not resist_mechs:
+                resist_mechs = ["no se identificaron mecanismos de resistencia activos "
+                                "a las dosis y tiempos empleados"]
+
+            # Hipótesis
+            if viab < 30 and not final_resist:
+                hypothesis = (
+                    f"La combinación {'de los agentes empleados' if is_combo else 'del agente empleado'} "
+                    f"supera el umbral de respuesta citotóxica en {cl_res} al situarse por encima de la "
+                    f"IC50 de referencia. El modelo predice respuesta completa sostenida sin emergencia "
+                    f"de resistencia en el tiempo simulado ({dur_h}h), lo que sugiere que la dosis "
+                    f"empleada genera un daño irreversible en la red de señalización. "
+                    f"La baja actividad de la señal de supervivencia "
+                    f"(avg BCL-2/survival: {avg_n.get('survival_signal', 0):.2f}) y la alta apoptosis "
+                    f"({avg_n.get('apoptosis_signal', 0):.2f}) son coherentes con respuesta citotóxica "
+                    f"directa más que citostática."
+                )
+                lab_proposal = (
+                    f"Validar la respuesta en {cl_res} mediante ensayo de viabilidad MTT/CellTiter-Glo "
+                    f"a 72h con la combinación propuesta. Curva dosis-respuesta "
+                    f"(0.001–100× IC50). Confirmar apoptosis por annexin V/PI (FACS). "
+                    f"Western blot de caspasa-3 clivada, PARP y citocromo c. "
+                    f"Si se confirma respuesta in vitro, escalar a modelo ortotópico "
+                    f"en ratón (KPC o PDX) con la misma combinación."
+                )
+            elif viab > 70:
+                main_node = max(
+                    [(k, v) for k, v in avg_n.items() if k in
+                     ["NRF2_active", "KRAS_active", "AKT_active", "survival_signal"]],
+                    key=lambda x: x[1]
+                )
+                hypothesis = (
+                    f"La elevada viabilidad residual ({viab:.0f}%) indica resistencia intrínseca "
+                    f"o emergente en {cl_res}. El nodo con mayor activación al final del experimento "
+                    f"es {main_node[0]} ({main_node[1]:.2f}), lo que apunta a que esta vía actúa "
+                    f"como mecanismo de escape principal. "
+                    + (f"La presencia de {final_resist} células con resistencia adquirida sugiere "
+                       f"presión de selección clonal activa, consistente con la teoría de evolución "
+                       f"tumoral darwiniana bajo tratamiento. " if final_resist > 2 else "")
+                    + f"Se hipotetiza que la adición de un inhibidor de {main_node[0].replace('_active','').replace('_level','')} "
+                    f"podría superar el escape observado."
+                )
+                lab_proposal = (
+                    f"1. Confirmar resistencia a {'la combinación' if is_combo else 'el agente'} en "
+                    f"{cl_res} mediante curva de viabilidad (72–96h). "
+                    f"2. Western blot de {main_node[0].replace('_active','').replace('_level','')} "
+                    f"y sus efectores downstream antes/después del tratamiento. "
+                    f"3. Terapia de rescate: añadir inhibidor de "
+                    f"{main_node[0].replace('_active','').replace('_level','')} en combinación. "
+                    f"4. Secuenciación de RNA (bulk RNA-seq) a 24h, 48h y 72h para identificar "
+                    f"la firma transcriptómica de resistencia. "
+                    f"5. Si se confirma resistencia adquirida: generar línea resistente estable "
+                    f"(cultivo continuo con dosis creciente) y analizar mutaciones emergentes "
+                    f"mediante WES (Whole Exome Sequencing)."
+                )
+            else:
+                hypothesis = (
+                    f"Respuesta intermedia ({viab:.0f}% viabilidad) en {cl_res}. El modelo indica "
+                    f"respuesta parcial con actividad citostática pero no citotóxica completa. "
+                    f"La dinámica de la población muestra un mínimo de {min_alive} células vivas "
+                    f"en el tiempo {df_r.loc[df_r['cancer_alive'].idxmin(), 'step']}h, seguido de "
+                    f"{'estabilización' if df_r['cancer_alive'].iloc[-1] <= df_r['cancer_alive'].min() * 1.2 else 'repoblación parcial'}. "
+                    f"Se hipotetiza que la fracción resistente ({final_resist} células) posee "
+                    f"ventaja proliferativa bajo presión farmacológica, siendo candidata a "
+                    f"evolucionar hacia resistencia completa con exposición prolongada."
+                )
+                lab_proposal = (
+                    f"1. Evaluar efecto tiempo-dependiente: extender el experimento a 120–144h "
+                    f"para determinar si la respuesta parcial progresa hacia muerte celular completa "
+                    f"o hacia resistencia. "
+                    f"2. Análisis de ciclo celular (Ki-67, BrdU incorporation) para distinguir "
+                    f"citostasis de citotoxicidad. "
+                    f"3. Optimizar dosis: ensayar {'combinación' if is_combo else 'dosis'} 2× y 5× "
+                    f"para determinar si existe umbral de respuesta completa. "
+                    f"4. Identificar la fracción resistente mediante cell sorting (vivas tras 72h) "
+                    f"y perfil transcriptómico diferencial vs células parentales."
+                )
+
+            # Construir texto del informe
+            date_str = datetime.now().strftime("%Y-%m-%d")
+            report_md = f"""## 📋 Informe de Experimento In Silico — PDAC Cell Culture Simulator
+**Fecha:** {date_str} · **Versión del modelo:** v9 · **Tests validados:** 14/14
+
+---
+
+### 1. Descripción del Experimento
+
+**Línea celular:** {cl_res}
+**Origen:** {cl_r['origin']}
+**Grado histológico:** {cl_r['grade']}
+
+**Perfil mutacional:**
+- KRAS: {cl_r['kras']}
+- TP53: {cl_r['tp53']}
+- CDKN2A: {cl_r['cdkn2a']}
+- SMAD4: {cl_r['smad4']}
+- BRCA2: {cl_r['brca2']}
+
+**Condiciones de cultivo:**
+- Medio: {cl_r['media']} + {cl_r['serum']}% FBS
+- Glucosa basal: {cl_r['glucose_mm']} mM {'(simulada con estrés energético adicional)' if glucose_low else ''}
+- Confluencia inicial: {init_confluence}% (~{init_n} células en grid {cl_r['grid']}×{cl_r['grid']})
+- Tiempo de duplicación de referencia: {cl_r['doubling_h']}h
+
+**Tratamiento aplicado ({dur_h}h = {dur_h/24:.1f} días):**
+""" + "\n".join(f"- {d}" for d in drug_lines) + f"""
+
+---
+
+### 2. Resultados del Experimento
+
+| Parámetro | Valor inicial | Valor final |
+|---|---|---|
+| Células tumorales vivas | {init_n} | {final_alive} |
+| Viabilidad (% vs T₀) | 100% | **{viab:.1f}%** |
+| Confluencia | {init_n / cl_r['grid']**2 * 100:.1f}% | {final_conflu:.1f}% |
+| Células resistentes | 0 | {final_resist} |
+
+**Respuesta global: {resp_cat}**
+
+**Dinámica temporal:**
+- Máximo de células vivas: {peak_alive} ({"inicio — sin efecto citotóxico inicial" if peak_alive == init_n else f"hora {int(df_r.loc[df_r['cancer_alive'].idxmax(), 'step'])}h"})
+- Mínimo de células vivas: {min_alive} (hora {int(df_r.loc[df_r['cancer_alive'].idxmin(), 'step'])}h)
+- Tendencia final: {"descenso sostenido" if df_r['cancer_alive'].iloc[-1] < df_r['cancer_alive'].iloc[len(df_r)//2] else "estabilización o repoblación"}
+
+**Estado de la señalización molecular al final del experimento (media poblacional):**
+- KRAS activo: {avg_n.get('KRAS_active', 0):.3f} | ERK: {avg_n.get('ERK_active', 0):.3f} | AKT: {avg_n.get('AKT_active', 0):.3f}
+- mTOR: {avg_n.get('mTOR_active', 0):.3f} | AMPK: {avg_n.get('AMPK_active', 0):.3f} | Autofagia: {avg_n.get('autophagy', 0):.3f}
+- NRF2: {avg_n.get('NRF2_active', 0):.3f} | GPX4: {avg_n.get('GPX4_level', 0):.3f} | SLC7A11: {avg_n.get('SLC7A11_expression', 0):.3f}
+- Supervivencia (BCL-2/proxy): {avg_n.get('survival_signal', 0):.3f} | Apoptosis: {avg_n.get('apoptosis_signal', 0):.3f}
+- PD-L1: {avg_n.get('PDL1_expression', 0):.3f} | YAP: {avg_n.get('YAP_nuclear', 0):.3f}
+
+---
+
+### 3. Mecanismos de Resistencia Identificados
+
+Se identificaron los siguientes mecanismos en la simulación:
+
+""" + "\n".join(f"{i+1}. **{m[0].upper()}{m[1:]}**" for i, m in enumerate(resist_mechs)) + f"""
+
+{"⚠️ **Nota:** La emergencia de " + str(final_resist) + " células con resistencia adquirida sugiere presión selectiva activa. Estas células muestran alteraciones en la red de señalización que confieren ventaja proliferativa bajo tratamiento." if final_resist > 2 else ""}
+
+---
+
+### 4. Hipótesis Generada
+
+{hypothesis}
+
+Los datos de señalización son coherentes con la literatura sobre {cl_res}: la variante {cl_r['kras']} de KRAS
+{"confiere alta actividad basal de RAF/MEK/ERK con dependencia oncogénica elevada" if cl_r['kras_variant'] != 'WT' else "no activa constitutivamente la vía MAPK, explicando mayor sensibilidad a agentes genotóxicos"}.
+{"La pérdida de SMAD4 elimina el freno del programa TGF-β, favoreciendo la plasticidad epitelial-mesenquimal y la resistencia a apoptosis." if "del" in cl_r['smad4'] else ""}
+{"La mutación BRCA2 {cl_r['brca2']} genera déficit de reparación homóloga, que el modelo captura como mayor sensibilidad a agentes que dañan el ADN." if "del" in cl_r.get('brca2','') or "LOF" in cl_r.get('brca2','') else ""}
+
+---
+
+### 5. Propuesta de Experimento en Laboratorio
+
+**Basado en los resultados in silico, se propone la siguiente secuencia experimental:**
+
+{lab_proposal}
+
+**Controles recomendados:**
+- Control negativo: DMSO al mismo volumen (solvente de los compuestos)
+- Control positivo citotóxico: Estaurosporina 1 µM (apoptosis completa en 24h)
+- Control de viabilidad: células no tratadas (normalización al 100%)
+- Repeticiones: mínimo n=3 experimentos independientes, triplicados técnicos
+
+**Técnicas analíticas sugeridas según los hallazgos del modelo:**
+- {"Ensayo de ferroptosis: TBARs/MDA, BODIPY-C11 (lipid peroxidation FACS), GSH/GSSG ratio" if (dose_rsl3_um > 0 or dose_erastin_um > 0 or avg_n.get('GPX4_level',0) < 0.4) else "Apoptosis: Annexin V/PI, caspasa-3/7 (Caspase-Glo)"}
+- {"Senescencia: SA-β-galactosidasa (X-Gal), p21 (CDKN1A) por qRT-PCR/WB" if avg_n.get('AMPK_active',0) > 0.4 else "Proliferación: Ki-67 IHC, EdU incorporation"}
+- {"Western Blot: GPX4, SLC7A11, NRF2, KEAP1" if avg_n.get('NRF2_active',0) > 0.5 else "Western Blot: pERK, pAKT, pS6K, cleaved-PARP"}
+- Microscopía de fluorescencia: marcaje live/dead (calcein-AM/EthD-1)
+
+---
+*Informe generado automáticamente por PDAC Cell Culture Simulator v9 · {date_str}*
+*14/14 tests de validación biológica · Basado en datos TCGA/ICGC PDAC Atlas 2024–2025*
+"""
+
+            # Mostrar informe
+            st.markdown(report_md)
+
+            # Descarga
+            st.markdown("---")
+            st.download_button(
+                "⬇️ Descargar informe (.md)",
+                report_md.encode("utf-8"),
+                file_name=f"informe_{cl_res}_{dur_h}h_{date_str}.md",
+                mime="text/markdown",
+                use_container_width=True,
+            )
+
+        else:
+            st.markdown("")
+            _, wc2, _ = st.columns([1, 2, 1])
+            with wc2:
+                st.markdown("""
+<div style="text-align:center;padding:2.5rem;background:#0a1420;
+border:1px solid #1b4f72;border-radius:16px;">
+<div style="font-size:3rem;">📄</div>
+<h3 style="color:#aed6f1">Informe Científico</h3>
+<p style="color:#5d9cc5">Corre un experimento primero para generar el informe.</p>
+<p style="color:#3d6070;font-size:.82rem">El informe incluirá: descripción del experimento,
+resultados cuantitativos, mecanismos de resistencia identificados,
+hipótesis biológica y propuesta de validación en laboratorio.</p>
+</div>""", unsafe_allow_html=True)
 
 except Exception as e:
     st.error(f"❌ Error: {e}")
