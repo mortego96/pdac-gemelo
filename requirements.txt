@@ -1,16 +1,12 @@
-# PDAC Gemelo Digital v4 — Dependencias
-# Python 3.12+
+# PDAC Cell Culture Simulator v9 — Dependencias
+# Python 3.11
 
-mesa>=3.0,<4.0
+mesa==3.0.3
 streamlit>=1.40
 networkx>=3.1
 plotly>=5.24
-pandas
-numpy
-scipy
-matplotlib>=3.9
+pandas>=2.0
+numpy>=1.26,<2.0
+scipy>=1.11
+matplotlib>=3.7
 Pillow>=10.0
-imageio>=2.36
-
-# Opcional (para dibujar moléculas):
-# pip install rdkit-pypi
